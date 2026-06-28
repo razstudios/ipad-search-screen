@@ -7,7 +7,6 @@
 <style>
   :root{
     --bg:#f6f7f9;
-    --keyboard:#eef0f3;
     --key:#ffffff;
     --key-border:#d7d9de;
     --key-down:#dfe3e8;
@@ -24,6 +23,7 @@
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
     -webkit-user-select:none;
     user-select:none;
+    touch-action:manipulation;
   }
 
   body{
@@ -40,12 +40,13 @@
       linear-gradient(180deg,#fff 0%,#f7f8fa 45%,#e9ebef 100%);
   }
 
+  /* Fake search bar. No real input field, so iPadOS should not open its own keyboard. */
   .search-wrap{
     position:absolute;
     left:6vw;
     right:6vw;
-    top:7.5vh;
-    height:9.5vh;
+    top:5.8vh;
+    height:9.2vh;
     display:flex;
     align-items:center;
     background:#fff;
@@ -103,26 +104,27 @@
     flex:0 0 auto;
   }
 
+  /* Moved slightly upward and shortened to avoid clash if iPad keyboard still appears. */
   .keyboard{
     position:absolute;
     left:3vw;
     right:3vw;
-    bottom:3vh;
-    height:58vh;
+    bottom:8vh;
+    height:52vh;
     background:rgba(238,240,243,.96);
-    border-radius:20px 20px 0 0;
-    padding:2.1vh 2vw 1.8vh;
+    border-radius:20px;
+    padding:2vh 2vw 1.8vh;
     box-sizing:border-box;
     display:flex;
     flex-direction:column;
-    gap:1.55vh;
+    gap:1.45vh;
   }
 
   .row{
     display:flex;
     gap:.78vw;
     justify-content:center;
-    height:10.35vh;
+    height:9.2vh;
   }
 
   .row-2{ padding:0 4.6vw; }
@@ -168,7 +170,7 @@
   }
 
   .bottom{
-    height:9.7vh;
+    height:8.9vh;
   }
 
   .num,.emoji,.period{
@@ -191,37 +193,15 @@
     font-size:clamp(18px,3vh,34px);
   }
 
-  .hidden-real-input{
-    position:absolute;
-    left:-9999px;
-    top:-9999px;
-    width:1px;
-    height:1px;
-    opacity:0;
-  }
-
-  .tap-zone{
-    position:absolute;
-    inset:0;
-    z-index:0;
-  }
-
-  .search-wrap,
-  .keyboard{
-    z-index:2;
-  }
-
   @media (orientation:portrait){
-    .search-wrap{top:7vh;height:7.3vh}
-    .keyboard{height:45vh}
-    .row{height:7.4vh}
+    .search-wrap{top:5.5vh;height:7.3vh}
+    .keyboard{height:42vh;bottom:8vh}
+    .row{height:6.8vh}
   }
 </style>
 </head>
 <body>
-<main class="stage" id="stage">
-  <div class="tap-zone" id="tapZone"></div>
-
+<main class="stage">
   <div class="search-wrap" id="searchWrap">
     <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="10.6" cy="10.6" r="6.6" fill="none" stroke="currentColor" stroke-width="2.35"/>
@@ -238,8 +218,6 @@
       <path d="M12 18v3M8.5 21h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </svg>
   </div>
-
-  <input class="hidden-real-input" id="realInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
 
   <section class="keyboard" aria-label="Keyboard">
     <div class="row">
@@ -292,7 +270,6 @@
 <script>
 (function(){
   const display = document.getElementById("display");
-  const realInput = document.getElementById("realInput");
   const keys = Array.from(document.querySelectorAll(".key"));
 
   let value = "";
@@ -305,7 +282,6 @@
     } else {
       display.innerHTML = safe + '<span class="caret"></span>';
     }
-    realInput.value = value;
   }
 
   function updateCase(){
@@ -315,10 +291,6 @@
         btn.textContent = shift ? k.toUpperCase() : k;
       }
     });
-  }
-
-  function focusCapture(){
-    try { realInput.focus({preventScroll:true}); } catch(e) { realInput.focus(); }
   }
 
   function addChar(k){
@@ -331,13 +303,11 @@
       value += k;
     }
     render();
-    focusCapture();
   }
 
   function removeChar(){
     value = value.slice(0, -1);
     render();
-    focusCapture();
   }
 
   function flash(btn){
@@ -351,7 +321,6 @@
     if(action === "shift"){
       shift = !shift;
       updateCase();
-      focusCapture();
       return;
     }
     if(action === "backspace"){
@@ -359,7 +328,6 @@
       return;
     }
     if(action === "search"){
-      focusCapture();
       return;
     }
     addChar(btn.dataset.key || "");
@@ -377,6 +345,7 @@
     }, {passive:false});
   });
 
+  // Allows a connected physical keyboard without opening the iPad software keyboard.
   document.addEventListener("keydown", e => {
     if(e.metaKey || e.ctrlKey || e.altKey) return;
 
@@ -388,7 +357,6 @@
 
     if(e.key === "Enter"){
       e.preventDefault();
-      focusCapture();
       return;
     }
 
@@ -398,20 +366,8 @@
       shift = false;
       updateCase();
       render();
-      focusCapture();
     }
   });
-
-  // Hidden input fallback. This helps if iPad/Safari sends text through the real input.
-  realInput.addEventListener("input", () => {
-    value = realInput.value;
-    shift = false;
-    updateCase();
-    render();
-  });
-
-  document.getElementById("searchWrap").addEventListener("click", focusCapture);
-  document.getElementById("tapZone").addEventListener("click", focusCapture);
 
   // Triple-tap the search bar to clear between takes.
   let taps = 0;
@@ -429,7 +385,6 @@
 
   updateCase();
   render();
-  setTimeout(focusCapture, 250);
 })();
 </script>
 </body>
