@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>iPad Search Cutaway</title>
+<style>
+  :root{
+    --bg:#f6f7f9;
+    --keyboard:#eef0f3;
+    --key:#ffffff;
+    --key-border:#d7d9de;
+    --key-down:#dfe3e8;
+    --text:#1f2328;
+    --blue:#007aff;
+  }
+
+  html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    -webkit-user-select:none;
+    user-select:none;
+  }
+
+  body{
+    position:fixed;
+    inset:0;
+  }
+
+  .stage{
+    width:100vw;
+    height:100vh;
+    position:relative;
+    background:
+      radial-gradient(circle at 78% 8%, rgba(255,255,255,.95), transparent 28%),
+      linear-gradient(180deg,#fff 0%,#f7f8fa 45%,#e9ebef 100%);
+  }
+
+  .search-wrap{
+    position:absolute;
+    left:6vw;
+    right:6vw;
+    top:7.5vh;
+    height:9.5vh;
+    display:flex;
+    align-items:center;
+    background:#fff;
+    border:1.5px solid #d8dbe1;
+    border-radius:20px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);
+  }
+
+  .search-icon{
+    width:3.4vh;
+    height:3.4vh;
+    margin-left:2.2vw;
+    color:#767a80;
+    flex:0 0 auto;
+  }
+
+  .fake-input{
+    flex:1;
+    height:100%;
+    display:flex;
+    align-items:center;
+    padding:0 1.8vw;
+    font-size:clamp(30px,4.8vh,58px);
+    letter-spacing:-.035em;
+    font-weight:400;
+    color:var(--text);
+    white-space:nowrap;
+    overflow:hidden;
+  }
+
+  .placeholder{
+    color:#9ba0a8;
+  }
+
+  .caret{
+    display:inline-block;
+    width:2px;
+    height:1.15em;
+    background:#333;
+    margin-left:3px;
+    vertical-align:-.18em;
+    animation:blink 1s steps(1) infinite;
+  }
+
+  @keyframes blink{
+    0%,49%{opacity:1}
+    50%,100%{opacity:0}
+  }
+
+  .mic{
+    width:3.9vh;
+    height:3.9vh;
+    margin-right:2.2vw;
+    color:#74787f;
+    flex:0 0 auto;
+  }
+
+  .keyboard{
+    position:absolute;
+    left:3vw;
+    right:3vw;
+    bottom:3vh;
+    height:58vh;
+    background:rgba(238,240,243,.96);
+    border-radius:20px 20px 0 0;
+    padding:2.1vh 2vw 1.8vh;
+    box-sizing:border-box;
+    display:flex;
+    flex-direction:column;
+    gap:1.55vh;
+  }
+
+  .row{
+    display:flex;
+    gap:.78vw;
+    justify-content:center;
+    height:10.35vh;
+  }
+
+  .row-2{ padding:0 4.6vw; }
+  .row-3{ padding:0 1vw; }
+
+  button{
+    font-family:inherit;
+  }
+
+  .key{
+    min-width:0;
+    flex:1 1 0;
+    border:1px solid var(--key-border);
+    border-radius:10px;
+    background:var(--key);
+    color:var(--text);
+    box-shadow:0 1px 2px rgba(0,0,0,.17);
+    font-size:clamp(24px,4.2vh,46px);
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:400;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+
+  .key:active,
+  .key.down{
+    background:var(--key-down);
+    transform:translateY(1px);
+    box-shadow:none;
+  }
+
+  .mod{
+    flex:.92 1 0;
+    background:#d9dde3;
+    font-size:clamp(20px,3.4vh,38px);
+  }
+
+  .backspace{
+    flex:1.15 1 0;
+  }
+
+  .bottom{
+    height:9.7vh;
+  }
+
+  .num,.emoji,.period{
+    flex:1.05 1 0;
+    background:#d9dde3;
+    font-size:clamp(18px,2.9vh,32px);
+  }
+
+  .space{
+    flex:5.25 1 0;
+    font-size:clamp(18px,2.7vh,30px);
+    color:#4e535a;
+  }
+
+  .return{
+    flex:1.45 1 0;
+    background:var(--blue);
+    border-color:var(--blue);
+    color:#fff;
+    font-size:clamp(18px,3vh,34px);
+  }
+
+  .hidden-real-input{
+    position:absolute;
+    left:-9999px;
+    top:-9999px;
+    width:1px;
+    height:1px;
+    opacity:0;
+  }
+
+  .tap-zone{
+    position:absolute;
+    inset:0;
+    z-index:0;
+  }
+
+  .search-wrap,
+  .keyboard{
+    z-index:2;
+  }
+
+  @media (orientation:portrait){
+    .search-wrap{top:7vh;height:7.3vh}
+    .keyboard{height:45vh}
+    .row{height:7.4vh}
+  }
+</style>
+</head>
+<body>
+<main class="stage" id="stage">
+  <div class="tap-zone" id="tapZone"></div>
+
+  <div class="search-wrap" id="searchWrap">
+    <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="10.6" cy="10.6" r="6.6" fill="none" stroke="currentColor" stroke-width="2.35"/>
+      <path d="M15.5 15.5L21 21" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round"/>
+    </svg>
+
+    <div class="fake-input" id="display" aria-label="Search">
+      <span class="placeholder">Search</span><span class="caret"></span>
+    </div>
+
+    <svg class="mic" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/>
+      <path d="M5.5 11.2a6.5 6.5 0 0013 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M12 18v3M8.5 21h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <input class="hidden-real-input" id="realInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+
+  <section class="keyboard" aria-label="Keyboard">
+    <div class="row">
+      <button class="key" data-key="q">q</button>
+      <button class="key" data-key="w">w</button>
+      <button class="key" data-key="e">e</button>
+      <button class="key" data-key="r">r</button>
+      <button class="key" data-key="t">t</button>
+      <button class="key" data-key="y">y</button>
+      <button class="key" data-key="u">u</button>
+      <button class="key" data-key="i">i</button>
+      <button class="key" data-key="o">o</button>
+      <button class="key" data-key="p">p</button>
+    </div>
+
+    <div class="row row-2">
+      <button class="key" data-key="a">a</button>
+      <button class="key" data-key="s">s</button>
+      <button class="key" data-key="d">d</button>
+      <button class="key" data-key="f">f</button>
+      <button class="key" data-key="g">g</button>
+      <button class="key" data-key="h">h</button>
+      <button class="key" data-key="j">j</button>
+      <button class="key" data-key="k">k</button>
+      <button class="key" data-key="l">l</button>
+    </div>
+
+    <div class="row row-3">
+      <button class="key mod" data-action="shift">⇧</button>
+      <button class="key" data-key="z">z</button>
+      <button class="key" data-key="x">x</button>
+      <button class="key" data-key="c">c</button>
+      <button class="key" data-key="v">v</button>
+      <button class="key" data-key="b">b</button>
+      <button class="key" data-key="n">n</button>
+      <button class="key" data-key="m">m</button>
+      <button class="key mod backspace" data-action="backspace">⌫</button>
+    </div>
+
+    <div class="row bottom">
+      <button class="key num" data-action="numbers">?123</button>
+      <button class="key emoji" data-key="">😊</button>
+      <button class="key space" data-key=" ">space</button>
+      <button class="key period" data-key=".">.</button>
+      <button class="key return" data-action="search">search</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  const display = document.getElementById("display");
+  const realInput = document.getElementById("realInput");
+  const keys = Array.from(document.querySelectorAll(".key"));
+
+  let value = "";
+  let shift = true;
+
+  function render(){
+    const safe = value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    if(value.length === 0){
+      display.innerHTML = '<span class="placeholder">Search</span><span class="caret"></span>';
+    } else {
+      display.innerHTML = safe + '<span class="caret"></span>';
+    }
+    realInput.value = value;
+  }
+
+  function updateCase(){
+    document.querySelectorAll(".key[data-key]").forEach(btn => {
+      const k = btn.dataset.key;
+      if(/^[a-z]$/.test(k)){
+        btn.textContent = shift ? k.toUpperCase() : k;
+      }
+    });
+  }
+
+  function focusCapture(){
+    try { realInput.focus({preventScroll:true}); } catch(e) { realInput.focus(); }
+  }
+
+  function addChar(k){
+    if(!k) return;
+    if(/^[a-z]$/.test(k)){
+      value += shift ? k.toUpperCase() : k;
+      shift = false;
+      updateCase();
+    } else {
+      value += k;
+    }
+    render();
+    focusCapture();
+  }
+
+  function removeChar(){
+    value = value.slice(0, -1);
+    render();
+    focusCapture();
+  }
+
+  function flash(btn){
+    btn.classList.add("down");
+    setTimeout(() => btn.classList.remove("down"), 110);
+  }
+
+  function press(btn){
+    flash(btn);
+    const action = btn.dataset.action;
+    if(action === "shift"){
+      shift = !shift;
+      updateCase();
+      focusCapture();
+      return;
+    }
+    if(action === "backspace"){
+      removeChar();
+      return;
+    }
+    if(action === "search"){
+      focusCapture();
+      return;
+    }
+    addChar(btn.dataset.key || "");
+  }
+
+  keys.forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      press(btn);
+    }, {passive:false});
+
+    btn.addEventListener("touchstart", e => {
+      e.preventDefault();
+      press(btn);
+    }, {passive:false});
+  });
+
+  document.addEventListener("keydown", e => {
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+
+    if(e.key === "Backspace"){
+      e.preventDefault();
+      removeChar();
+      return;
+    }
+
+    if(e.key === "Enter"){
+      e.preventDefault();
+      focusCapture();
+      return;
+    }
+
+    if(e.key.length === 1){
+      e.preventDefault();
+      value += e.key;
+      shift = false;
+      updateCase();
+      render();
+      focusCapture();
+    }
+  });
+
+  // Hidden input fallback. This helps if iPad/Safari sends text through the real input.
+  realInput.addEventListener("input", () => {
+    value = realInput.value;
+    shift = false;
+    updateCase();
+    render();
+  });
+
+  document.getElementById("searchWrap").addEventListener("click", focusCapture);
+  document.getElementById("tapZone").addEventListener("click", focusCapture);
+
+  // Triple-tap the search bar to clear between takes.
+  let taps = 0;
+  document.getElementById("searchWrap").addEventListener("touchend", () => {
+    taps++;
+    setTimeout(() => taps = 0, 450);
+    if(taps >= 3){
+      value = "";
+      shift = true;
+      updateCase();
+      render();
+      taps = 0;
+    }
+  });
+
+  updateCase();
+  render();
+  setTimeout(focusCapture, 250);
+})();
+</script>
+</body>
+</html>
